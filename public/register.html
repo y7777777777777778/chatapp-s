@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>新規登録</title>
+    <script>
+        function register() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            if (username.trim() === "" || password.trim() === "") {
+                alert("ユーザー名とパスワードを入力してください！");
+                return;
+            }
+
+            localStorage.setItem("registeredUser", username);
+            localStorage.setItem("registeredPassword", password);
+
+            alert("登録が完了しました！ログインしてください。");
+            window.location.href = "index.html";  // 🔹 ログイン画面へ移動
+        }
+    </script>
+</head>
+<body>
+    <h1>新規登録</h1>
+    <input type="text" id="username" placeholder="ユーザー名を入力" />
+    <input type="password" id="password" placeholder="パスワードを入力" />
+    <button onclick="register()">登録</button>
+</body>
+</html>
