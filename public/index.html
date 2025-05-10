@@ -2,24 +2,34 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>チャットアプリ</title>
+    <title>リアルタイムチャット</title>
     <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; }
+        #messages { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
+        img, video { max-width: 100%; margin-top: 10px; }
+    </style>
 </head>
 <body>
-    <h1>チャットアプリへようこそ！</h1>
+    <h1>リアルタイムチャット</h1>
     <div id="messages"></div>
     <input id="messageInput" type="text" placeholder="メッセージを入力..." />
     <button onclick="sendMessage()">送信</button>
+    
+    <input id="fileInput" type="file" />
+    <button onclick="sendFile()">画像・動画を送信</button>
 
     <script>
         const socket = io();
 
+        // テキストメッセージ受信
         socket.on('message', (msg) => {
             const div = document.createElement('div');
             div.textContent = msg;
             document.getElementById('messages').appendChild(div);
         });
 
+        // メッセージ送信
         function sendMessage() {
             const input = document.getElementById('messageInput');
             const message = input.value;
@@ -28,6 +38,34 @@
                 input.value = "";
             }
         }
+
+        // ファイル送信
+        function sendFile() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                const fileType = file.type.startsWith('image') ? 'image' : 'video';
+                socket.emit('file', { name: file.name, data: reader.result, type: fileType });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ファイル受信
+        socket.on('file', (file) => {
+            if (file.type === 'image') {
+                const img = document.createElement('img');
+                img.src = file.data;
+                img.alt = file.name;
+                document.getElementById('messages').appendChild(img);
+            } else if (file.type === 'video') {
+                const video = document.createElement('video');
+                video.src = file.data;
+                video.controls = true;
+                document.getElementById('messages').appendChild(video);
+            }
+        });
     </script>
 </body>
 </html>
