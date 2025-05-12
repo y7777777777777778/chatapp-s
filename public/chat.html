@@ -104,8 +104,14 @@
     <h1>チャットルーム</h1>
     <p id="usernameDisplay"></p> 
     <select id="roomSelect">
-        <option value="雑談部屋">雑談部屋</option>
-        <option value="PC特化部屋">PC特化部屋</option>
+       <select id="roomSelect">
+    <option value="雑談部屋">雑談部屋（下ネタ、暴言禁止）</option>
+    <option value="雑談部屋2">雑談部屋2（下ネタ、暴言OK）
+</option> <!-- 🔹 追加 -->
+    <option value="PC特化部屋">PC特化部屋</option>
+</select>
+ 
+
     </select>
     <button onclick="joinRoom()">部屋に入る</button>
     <button onclick="logout()">ログアウト</button>
