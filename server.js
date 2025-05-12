@@ -10,7 +10,7 @@ const io = socketIo(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-    console.log("✅ Render のサーバーにアクセスされました！"); // 🔥 ログ確認用
+    console.log("✅ Render のサーバーにアクセスされました！");
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -36,7 +36,8 @@ io.on('connection', (socket) => {
         io.to(data.room).emit('message', data);
     });
 
-    socket.on('file', (file) => { // 🔹 画像・動画ファイルの送信処理を復活
+    socket.on('file', (file) => {
+        console.log("📸 画像/動画を受信:", file);
         rooms[file.room].push(file);
         io.to(file.room).emit('file', file);
     });
