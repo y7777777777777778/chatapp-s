@@ -39,16 +39,18 @@ io.on('connection', (socket) => {
     socket.on('joinRoom', (room) => {
         socket.join(room);
         console.log(`🛜 ${socket.id} が「${room}」に参加`);
-        socket.emit('messageHistory', rooms[room]);
+        socket.emit('messageHistory', rooms[room] || []);
     });
 
     socket.on('message', (data) => {
+        if (!rooms[data.room]) rooms[data.room] = [];
         rooms[data.room].push(data);
         db.run("INSERT INTO messages (room, username, message) VALUES (?, ?, ?)", [data.room, data.username, data.message]); // 🔹 DBに保存
         io.to(data.room).emit('message', data);
     });
 
     socket.on('file', (file) => {
+        if (!rooms[file.room]) rooms[file.room] = [];
         rooms[file.room].push(file);
         io.to(file.room).emit('file', file);
     });
