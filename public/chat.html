@@ -36,52 +36,10 @@
         socket.emit("joinRoom", currentRoom);
     });
 
-    socket.on('messageHistory', (history) => {
-        document.getElementById('messages').innerHTML = "";
-        history.forEach((data) => {
-            addMessageToChat(data);
-        });
-    });
-
-    socket.on('message', (data) => {
-        addMessageToChat(data);
-    });
-
     socket.on('file', (file) => {
-        displayFile(file);
-    });
-
-    function joinRoom() {
-        currentRoom = document.getElementById("roomSelect").value;
-        socket.emit("joinRoom", currentRoom);
-    }
-
-    function sendMessage() {
-        const message = document.getElementById('messageInput').value;
-        if (!message.trim()) return;
-        socket.emit('message', { username, message, room: currentRoom });
-    }
-
-    function sendFile() {
-        const file = document.getElementById('fileInput').files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = () => {
-            const fileData = { username, data: reader.result, room: currentRoom };
-            socket.emit('file', fileData);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function addMessageToChat(data) {
-        const div = document.createElement('div');
-        div.innerHTML = `<strong>${data.username}</strong>: ${data.message}`;
-        document.getElementById('messages').appendChild(div);
-    }
-
-    function displayFile(file) {
         if (!file.data) return;
+        console.log("📥 画像/動画を表示:", file);
+
         const container = document.createElement('div');
         const button = document.createElement('button');
         button.textContent = "画像を表示する";
@@ -98,12 +56,19 @@
         container.appendChild(button);
         container.appendChild(image);
         document.getElementById('messages').appendChild(container);
-    }
+    });
 
-    function logout() {
-        localStorage.removeItem("authenticated");
-        localStorage.removeItem("username");
-        window.location.href = "index.html";
+    function sendFile() {
+        const file = document.getElementById('fileInput').files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const fileData = { username, data: reader.result, room: currentRoom };
+            console.log("📤 画像/動画送信:", fileData);
+            socket.emit('file', fileData);
+        };
+        reader.readAsDataURL(file);
     }
 </script>
 </html>
