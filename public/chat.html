@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -15,8 +16,8 @@
         }
 
         const socket = io();
-        const username = localStorage.getItem("username") || "ゲスト"; // 🔹 undefined を防ぐ
-        let currentRoom = "雑談部屋"; // 🔹 初期値
+        const username = localStorage.getItem("username") || "ゲスト";
+        let currentRoom = "雑談部屋";
 
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("usernameDisplay").textContent = `ログインユーザー: ${username}`;
@@ -24,7 +25,7 @@
         });
 
         socket.on('messageHistory', (history) => {
-            document.getElementById('messages').innerHTML = ""; // 🔹 メッセージをリセット
+            document.getElementById('messages').innerHTML = "";
             history.forEach((data) => {
                 if (data.username && data.message) {
                     addMessageToChat(data);
@@ -44,6 +45,7 @@
 
         function joinRoom() {
             currentRoom = document.getElementById("roomSelect").value;
+            console.log(`🔹 部屋選択: ${currentRoom}`); // 🔥 デバッグログ
             socket.emit("joinRoom", currentRoom);
         }
 
@@ -74,20 +76,17 @@
 
         function displayFile(file) {
             if (!file.data) return;
-
             const container = document.createElement('div');
             const button = document.createElement('button');
             button.textContent = "画像を表示する";
             button.onclick = () => {
                 image.classList.toggle('hidden');
             };
-
             const image = document.createElement(file.data.startsWith("data:image") ? 'img' : 'video');
             image.src = file.data;
             image.controls = file.data.startsWith("data:video");
             image.classList.add('hidden');
             image.style.maxWidth = "100%";
-
             container.appendChild(button);
             container.appendChild(image);
             document.getElementById('messages').appendChild(container);
@@ -104,14 +103,9 @@
     <h1>チャットルーム</h1>
     <p id="usernameDisplay"></p> 
     <select id="roomSelect">
-       <select id="roomSelect">
-    <option value="雑談部屋">雑談部屋（下ネタ、暴言禁止）</option>
-    <option value="雑談部屋2">雑談部屋2（下ネタ、暴言OK）
-</option> <!-- 🔹 追加 -->
-    <option value="PC特化部屋">PC特化部屋</option>
-</select>
- 
-
+        <option value="雑談部屋">雑談部屋（下ネタ・暴言禁止）</option>
+        <option value="雑談部屋2">雑談部屋2（下ネタ・暴言OK）</option>
+        <option value="PC特化部屋">PC特化部屋</option>
     </select>
     <button onclick="joinRoom()">部屋に入る</button>
     <button onclick="logout()">ログアウト</button>
@@ -122,3 +116,4 @@
     <button onclick="sendFile()">画像・動画を送信</button>
 </body>
 </html>
+
