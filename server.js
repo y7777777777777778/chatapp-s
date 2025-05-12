@@ -1,4 +1,3 @@
-
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -37,7 +36,7 @@ io.on('connection', (socket) => {
         io.to(data.room).emit('message', data);
     });
 
-    socket.on('file', (file) => {
+    socket.on('file', (file) => { // 🔹 画像・動画ファイルの送信処理を復活
         rooms[file.room].push(file);
         io.to(file.room).emit('file', file);
     });
@@ -47,6 +46,6 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(5000, () => {
+server.listen(process.env.PORT || 5000, () => {
     console.log("🚀 サーバーがポート 5000 で起動しました！");
 });
