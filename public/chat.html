@@ -84,6 +84,32 @@
         document.getElementById('pinnedMessage').innerHTML = `📌 ピン止め: ${data.message}`;
     });
 
+    socket.on('file', (file) => {
+        console.log("📥 画像/動画を表示:", file);
+
+        if (!file.data) {
+            console.error("❌ 受信したファイルのデータが空です！");
+            return;
+        }
+
+        const container = document.createElement('div');
+        const button = document.createElement('button');
+        button.textContent = "画像/動画を表示する";
+        button.onclick = () => {
+            media.classList.toggle('hidden');
+        };
+
+        const media = document.createElement(file.data.startsWith("data:image") ? 'img' : 'video');
+        media.src = file.data;
+        media.controls = file.data.startsWith("data:video");
+        media.classList.add('hidden');
+        media.style.maxWidth = "100%";
+
+        container.appendChild(button);
+        container.appendChild(media);
+        document.getElementById('messages').appendChild(container);
+    });
+
     function addMessageToChat(data) {
         const div = document.createElement('div');
         div.innerHTML = `<strong>${data.username}</strong>: ${data.message} 
@@ -92,3 +118,4 @@
     }
 </script>
 </html>
+
