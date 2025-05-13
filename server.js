@@ -1,3 +1,4 @@
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -45,6 +46,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('file', (file) => {
+        console.log("📸 画像/動画を受信:", file);
         io.to(file.room).emit('file', file);
     });
 });
