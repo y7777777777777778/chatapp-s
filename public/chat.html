@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -9,6 +8,7 @@
         body { font-family: Arial, sans-serif; }
         #messages { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
         #pinnedMessage { font-weight: bold; color: red; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -47,67 +47,37 @@
     function sendMessage() {
         const message = document.getElementById('messageInput').value;
         if (!message.trim()) return;
-
-        const messageData = { username, message, room: currentRoom };
-        socket.emit('message', messageData);
+        socket.emit('message', { username, message, room: currentRoom });
     }
 
     function sendFile() {
         const file = document.getElementById('fileInput').files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = () => {
-            const fileData = { username, data: reader.result, room: currentRoom };
-            socket.emit('file', fileData);
+            socket.emit('file', { username, data: reader.result, room: currentRoom });
         };
         reader.readAsDataURL(file);
     }
 
     function pinMessage(message) {
-        const pinnedData = { username, message, room: currentRoom };
-        socket.emit('pinMessage', pinnedData);
+        socket.emit('pinMessage', { username, message, room: currentRoom });
     }
 
     socket.on('messageHistory', (history) => {
         document.getElementById('messages').innerHTML = "";
-        history.forEach((data) => {
-            addMessageToChat(data);
-        });
+        history.forEach(addMessageToChat);
     });
 
-    socket.on('message', (data) => {
-        addMessageToChat(data);
+    socket.on('fileHistory', (history) => {
+        history.forEach(displayFile);
     });
+
+    socket.on('message', addMessageToChat);
+    socket.on('file', displayFile);
 
     socket.on('updatePinnedMessage', (data) => {
         document.getElementById('pinnedMessage').innerHTML = `📌 ピン止め: ${data.message}`;
-    });
-
-    socket.on('file', (file) => {
-        console.log("📥 画像/動画を表示:", file);
-
-        if (!file.data) {
-            console.error("❌ 受信したファイルのデータが空です！");
-            return;
-        }
-
-        const container = document.createElement('div');
-        const button = document.createElement('button');
-        button.textContent = "画像/動画を表示する";
-        button.onclick = () => {
-            media.classList.toggle('hidden');
-        };
-
-        const media = document.createElement(file.data.startsWith("data:image") ? 'img' : 'video');
-        media.src = file.data;
-        media.controls = file.data.startsWith("data:video");
-        media.classList.add('hidden');
-        media.style.maxWidth = "100%";
-
-        container.appendChild(button);
-        container.appendChild(media);
-        document.getElementById('messages').appendChild(container);
     });
 
     function addMessageToChat(data) {
@@ -116,6 +86,20 @@
                          <button onclick="pinMessage('${data.message}')">📌 ピン止め</button>`;
         document.getElementById('messages').appendChild(div);
     }
+
+    function displayFile(file) {
+        const container = document.createElement('div');
+        const button = document.createElement('button');
+        button.textContent = "画像/動画を表示する";
+        button.onclick = () => { media.classList.toggle('hidden'); };
+        const media = document.createElement(file.data.startsWith("data:image") ? 'img' : 'video');
+        media.src = file.data;
+        media.controls = file.data.startsWith("data:video");
+        media.classList.add('hidden');
+        media.style.maxWidth = "100%";
+        container.appendChild(button);
+        container.appendChild(media);
+        document.getElementById('messages').appendChild(container);
+    }
 </script>
 </html>
-
