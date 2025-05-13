@@ -12,6 +12,7 @@ const io = socketIo(server);
 const db = new sqlite3.Database('./chat.db');
 db.run("CREATE TABLE IF NOT EXISTS messages (room TEXT, username TEXT, message TEXT, timestamp TEXT)");
 db.run("CREATE TABLE IF NOT EXISTS pinned (room TEXT, message TEXT)");
+db.run("CREATE TABLE IF NOT EXISTS files (room TEXT, username TEXT, data TEXT, timestamp TEXT)");
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -31,6 +32,10 @@ io.on('connection', (socket) => {
         db.get("SELECT message FROM pinned WHERE room = ?", [room], (err, row) => {
             if (row) socket.emit('updatePinnedMessage', row);
         });
+
+        db.all("SELECT * FROM files WHERE room = ?", [room], (err, rows) => {
+            if (!err) socket.emit('fileHistory', rows);
+        });
     });
 
     socket.on('message', (data) => {
@@ -46,7 +51,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('file', (file) => {
-        console.log("📸 画像/動画を受信:", file);
+        db.run("INSERT INTO files (room, username, data, timestamp) VALUES (?, ?, ?, ?)", 
+               [file.room, file.username, file.data, new Date().toISOString()]);
         io.to(file.room).emit('file', file);
     });
 });
