@@ -13,6 +13,7 @@ const db = new sqlite3.Database('./chat.db');
 db.run("CREATE TABLE IF NOT EXISTS messages (room TEXT, username TEXT, message TEXT, timestamp TEXT)");
 db.run("CREATE TABLE IF NOT EXISTS pinned (room TEXT, message TEXT)");
 db.run("CREATE TABLE IF NOT EXISTS files (room TEXT, username TEXT, data TEXT, timestamp TEXT)");
+db.run("CREATE TABLE IF NOT EXISTS direct_messages (sender TEXT, recipient TEXT, message TEXT, timestamp TEXT)");
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -23,6 +24,11 @@ app.get('/', (req, res) => {
 app.get('/chat.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'chat.html')));
 
 io.on('connection', (socket) => {
+    socket.on('setUsername', (username) => {
+        socket.username = username;
+        io.emit('updateUserList', getConnectedUsers());
+    });
+
     socket.on('joinRoom', (room) => {
         socket.join(room);
         db.all("SELECT * FROM messages WHERE room = ?", [room], (err, rows) => {
@@ -45,7 +51,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('pinMessage', (data) => {
-        db.run("DELETE FROM pinned WHERE room = ?", [data.room]); // 以前のピンを削除
+        db.run("DELETE FROM pinned WHERE room = ?", [data.room]); 
         db.run("INSERT INTO pinned (room, message) VALUES (?, ?)", [data.room, data.message]);
         io.to(data.room).emit('updatePinnedMessage', data);
     });
@@ -55,6 +61,25 @@ io.on('connection', (socket) => {
                [file.room, file.username, file.data, new Date().toISOString()]);
         io.to(file.room).emit('file', file);
     });
+
+    socket.on('directMessage', ({ recipient, message }) => {
+        const sender = socket.username;
+        db.run("INSERT INTO direct_messages (sender, recipient, message, timestamp) VALUES (?, ?, ?, ?)", 
+               [sender, recipient, message, new Date().toISOString()]);
+        io.to(getSocketId(recipient)).emit('directMessage', { sender, message });
+    });
+
+    socket.on('disconnect', () => {
+        io.emit('updateUserList', getConnectedUsers());
+    });
+
+    function getConnectedUsers() {
+        return Array.from(io.sockets.sockets.values()).map(s => s.username).filter(Boolean);
+    }
+
+    function getSocketId(username) {
+        return Array.from(io.sockets.sockets.values()).find(s => s.username === username)?.id;
+    }
 });
 
 server.listen(process.env.PORT || 5000, () => {
