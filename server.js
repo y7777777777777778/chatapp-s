@@ -1,4 +1,3 @@
-
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -42,6 +41,11 @@ io.on('connection', (socket) => {
         db.all("SELECT * FROM files WHERE room = ?", [room], (err, rows) => {
             if (!err) socket.emit('fileHistory', rows);
         });
+
+        db.all("SELECT * FROM direct_messages WHERE sender = ? OR recipient = ?", 
+            [socket.username, socket.username], (err, rows) => {
+                if (!err) socket.emit('dmHistory', rows);
+            });
     });
 
     socket.on('message', (data) => {
