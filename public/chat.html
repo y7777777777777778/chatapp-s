@@ -1,105 +1,205 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>チャットルーム</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        #messages { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
-        #pinnedMessage { font-weight: bold; color: red; }
-        .hidden { display: none; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>インスタ風チャットルーム</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+      margin: 0;
+      padding: 0 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      color: #262626;
+    }
+
+    h1, h2 {
+      margin-top: 2rem;
+      font-weight: 600;
+      font-size: 1.8rem;
+    }
+
+    #usernameDisplay {
+      margin: 0.5rem 0 1rem 0;
+      font-size: 0.9rem;
+      color: #999;
+    }
+
+    .room-container {
+      margin: 1rem 0;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .room-button {
+      padding: 10px 24px;
+      border-radius: 9999px;
+      background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+
+    #chat-box {
+      width: 100%;
+      max-width: 600px;
+      height: 380px;
+      background: white;
+      border-radius: 20px;
+      overflow-y: auto;
+      margin: 1rem 0;
+      padding: 1rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .message {
+      margin: 0.5rem 0;
+      padding: 10px 14px;
+      border-radius: 20px;
+      max-width: 70%;
+    }
+
+    .self {
+      background: linear-gradient(135deg, #f09433, #bc1888);
+      color: white;
+      align-self: flex-end;
+    }
+
+    .other {
+      background: #f0f0f0;
+      color: #262626;
+      align-self: flex-start;
+    }
+
+    #input-area {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    input[type=text] {
+      flex: 1;
+      padding: 0.75rem;
+      border-radius: 50px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 0.75rem 1.2rem;
+      border-radius: 50px;
+      border: none;
+      color: white;
+      background: linear-gradient(45deg, #f09433, #bc1888);
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #participants {
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 1rem;
+      background: #fff;
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: none;
+    }
+
+    #participants h3 {
+      margin-top: 0;
+    }
+  </style>
 </head>
 <body>
-    <h1>チャットルーム</h1>
-    <p id="usernameDisplay"></p> 
-    <select id="roomSelect">
-        <option value="雑談部屋">雑談部屋</option>
-        <option value="雑談部屋2">雑談部屋2</option>
-    </select>
-    <button onclick="joinRoom()">部屋に入る</button>
-    <button onclick="logout()">ログアウト</button>
-    <div id="pinnedMessage">📌 ピン止め: なし</div>
-    <div id="messages"></div>
-    <input id="messageInput" type="text" placeholder="メッセージを入力..." />
+  <h1>インスタ風チャットルーム</h1>
+  <p id="usernameDisplay"></p>
+
+  <h2>入りたい部屋を選択</h2>
+  <div class="room-container">
+    <button class="room-button" onclick="joinRoom('雑談部屋')">雑談部屋</button>
+    <button class="room-button" onclick="joinRoom('雑談部屋2')">雑談部屋2</button>
+    <button class="room-button" onclick="joinRoom('DM部屋')">DM部屋</button>
+  </div>
+
+  <h2>チャットルーム: <span id="roomTitle">未選択</span></h2>
+
+  <div id="participants">
+    <h3>📍 今いる人</h3>
+    <ul id="currentList"></ul>
+    <h3>📜 過去にいた人</h3>
+    <ul id="historyList"></ul>
+  </div>
+
+  <div id="chat-box"></div>
+
+  <div id="input-area">
+    <input type="text" id="message-input" placeholder="メッセージを入力..." />
     <button onclick="sendMessage()">送信</button>
-    <input id="fileInput" type="file" />
-    <button onclick="sendFile()">画像・動画を送信</button>
-</body>
-<script>
+  </div>
+
+  <script>
     const socket = io();
-    const username = localStorage.getItem("username") || "ゲスト";
-    let currentRoom = localStorage.getItem("currentRoom") || "雑談部屋";
+    const username = localStorage.getItem('username') || 'ゲスト';
+    document.getElementById("usernameDisplay").textContent = `ログインユーザー: ${username}`;
+    let currentRoom = null;
 
-    document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("usernameDisplay").textContent = `ログインユーザー: ${username}`;
-        document.getElementById("roomSelect").value = currentRoom;
-        socket.emit("joinRoom", currentRoom);
-    });
+    function joinRoom(room) {
+      currentRoom = room;
+      document.getElementById("roomTitle").textContent = room;
+      socket.emit("joinRoom", { room, username });
+      fetchMessages();
+      if (room === "DM部屋") {
+        document.getElementById("participants").style.display = "block";
+        fetchParticipants();
+      } else {
+        document.getElementById("participants").style.display = "none";
+      }
+    }
 
-    function joinRoom() {
-        currentRoom = document.getElementById("roomSelect").value;
-        localStorage.setItem("currentRoom", currentRoom);
-        socket.emit("joinRoom", currentRoom);
+    async function fetchMessages() {
+      const res = await fetch(`/messages?room=${currentRoom}`);
+      const messages = await res.json();
+      const box = document.getElementById("chat-box");
+      box.innerHTML = "";
+      messages.forEach(msg => addMessage(msg));
+    }
+
+    function addMessage(msg) {
+      const div = document.createElement("div");
+      div.className = `message ${msg.user === username ? "self" : "other"}`;
+      div.innerHTML = `<strong>${msg.user}</strong><br>${msg.text}`;
+      document.getElementById("chat-box").appendChild(div);
     }
 
     function sendMessage() {
-        const message = document.getElementById('messageInput').value;
-        if (!message.trim()) return;
-        socket.emit('message', { username, message, room: currentRoom });
+      const input = document.getElementById("message-input");
+      const message = input.value;
+      if (!message.trim()) return;
+      socket.emit("message", { room: currentRoom, user: username, text: message });
+      input.value = "";
     }
 
-    function sendFile() {
-        const file = document.getElementById('fileInput').files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            socket.emit('file', { username, data: reader.result, room: currentRoom });
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function pinMessage(message) {
-        socket.emit('pinMessage', { username, message, room: currentRoom });
-    }
-
-    socket.on('messageHistory', (history) => {
-        document.getElementById('messages').innerHTML = "";
-        history.forEach(addMessageToChat);
+    socket.on("message", msg => {
+      if (msg.room === currentRoom) addMessage(msg);
     });
 
-    socket.on('fileHistory', (history) => {
-        history.forEach(displayFile);
-    });
-
-    socket.on('message', addMessageToChat);
-    socket.on('file', displayFile);
-
-    socket.on('updatePinnedMessage', (data) => {
-        document.getElementById('pinnedMessage').innerHTML = `📌 ピン止め: ${data.message}`;
-    });
-
-    function addMessageToChat(data) {
-        const div = document.createElement('div');
-        div.innerHTML = `<strong>${data.username}</strong>: ${data.message} 
-                         <button onclick="pinMessage('${data.message}')">📌 ピン止め</button>`;
-        document.getElementById('messages').appendChild(div);
+    async function fetchParticipants() {
+      const res = await fetch(`/participants?room=${currentRoom}`);
+      const data = await res.json();
+      document.getElementById("currentList").innerHTML = data.current.map(u => `<li>${u}</li>`).join("");
+      document.getElementById("historyList").innerHTML = data.history.map(u => `<li>${u}</li>`).join("");
     }
-
-    function displayFile(file) {
-        const container = document.createElement('div');
-        const button = document.createElement('button');
-        button.textContent = "画像/動画を表示する";
-        button.onclick = () => { media.classList.toggle('hidden'); };
-        const media = document.createElement(file.data.startsWith("data:image") ? 'img' : 'video');
-        media.src = file.data;
-        media.controls = file.data.startsWith("data:video");
-        media.classList.add('hidden');
-        media.style.maxWidth = "100%";
-        container.appendChild(button);
-        container.appendChild(media);
-        document.getElementById('messages').appendChild(container);
-    }
-</script>
+  </script>
+</body>
 </html>
