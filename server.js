@@ -1,170 +1,148 @@
-
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const bodyParser = require('body-parser');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = socketIO(server);
 
-app.use(express.static("public"));
-app.use(express.json());
+const db = new sqlite3.Database('./users.db');
 
-const messages = {}; // 各部屋のメッセージを保持
-const usersInRooms = {}; // 各部屋にいるユーザー
+// 静的ファイル提供
+app.use(express.static('public'));
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// ファイルアップロード設定
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, "public", "uploads");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + "_" + file.originalname;
-    cb(null, uniqueName);
-  },
-});
-const upload = multer({ storage });
-
-app.post("/upload", upload.single("file"), (req, res) => {
-  const { username, room } = req.body;
-  const fileUrl = `/uploads/${req.file.filename}`;
-  const msg = { user: username, file: fileUrl, room };
-  if (!messages[room]) messages[room] = [];
-  messages[room].push(msg);
-  io.to(room).emit("message", msg);
-  res.json({ success: true });
+// ユーザーDB作成
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE,
+      password TEXT
+    )
+  `);
 });
 
-app.post("/send-message", (req, res) => {
-  const { message, username, room } = req.body;
-  if (!messages[room]) messages[room] = [];
+// ルーティング
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/login.html'));
+});
 
-  // コマンド処理
-  if (message.startsWith("/")) {
-    const cmd = message.trim().toLowerCase();
+app.get('/register', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/register.html'));
+});
 
-    switch (cmd) {
-      case "/allclear":
-        messages[room] = [];
-        io.to(room).emit("message", {
-          user: "システム",
-          text: `${username} が全メッセージを削除しました`,
-          room,
-        });
-        return res.json({ success: true });
-
-      case "/help":
-        const helpText = `
-        利用可能なコマンド:
-        /help - コマンド一覧を表示
-        /allclear - メッセージを全削除
-        /date - 現在日時を表示
-        /usercount - 現在の総ユーザー数
-        /roomusers - 現在の部屋のユーザー
-        /myname - あなたのユーザー名
-        /roll - サイコロを振る 🎲
-        /flip - コインを投げる 🪙
-        /joke - ランダムなジョークを表示`;
-        messages[room].push({ user: "システム", text: helpText, room });
-        io.to(room).emit("message", { user: "システム", text: helpText, room });
-        return res.json({ success: true });
-
-      case "/date":
-        const now = new Date();
-        const formatted = now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-        const dateMsg = `📅 現在の日時: ${formatted}`;
-        messages[room].push({ user: "システム", text: dateMsg, room });
-        io.to(room).emit("message", { user: "システム", text: dateMsg, room });
-        return res.json({ success: true });
-
-      case "/usercount":
-        const allUsers = Object.values(usersInRooms).flat();
-        const uniqueUsers = [...new Set(allUsers)];
-        const countMsg = `👥 サイト全体のユーザー数: ${uniqueUsers.length}`;
-        messages[room].push({ user: "システム", text: countMsg, room });
-        io.to(room).emit("message", { user: "システム", text: countMsg, room });
-        return res.json({ success: true });
-
-      case "/roomusers":
-        const roomUsers = usersInRooms[room] || [];
-        const list = roomUsers.join(", ") || "誰もいません";
-        const userListMsg = `📍 現在の部屋のユーザー: ${list}`;
-        messages[room].push({ user: "システム", text: userListMsg, room });
-        io.to(room).emit("message", { user: "システム", text: userListMsg, room });
-        return res.json({ success: true });
-
-      case "/myname":
-        const nameMsg = `あなたのユーザー名: ${username}`;
-        messages[room].push({ user: "システム", text: nameMsg, room });
-        io.to(room).emit("message", { user: "システム", text: nameMsg, room });
-        return res.json({ success: true });
-
-      case "/roll":
-        const dice = Math.floor(Math.random() * 6) + 1;
-        const diceMsg = `${username} のサイコロの目: 🎲 ${dice}`;
-        messages[room].push({ user: "システム", text: diceMsg, room });
-        io.to(room).emit("message", { user: "システム", text: diceMsg, room });
-        return res.json({ success: true });
-
-      case "/flip":
-        const flip = Math.random() < 0.5 ? "表 (Heads)" : "裏 (Tails)";
-        const flipMsg = `${username} のコイントス: 🪙 ${flip}`;
-        messages[room].push({ user: "システム", text: flipMsg, room });
-        io.to(room).emit("message", { user: "システム", text: flipMsg, room });
-        return res.json({ success: true });
-
-      case "/joke":
-        const jokes = [
-          "プログラマーがビールを嫌う理由？バグが酔って出てくるから！",
-          "エラーが出たら？...逃げるが勝ち！😂",
-          "JavaとJavaScriptは違う？犬とホットドッグくらい違うよ。",
-        ];
-        const joke = jokes[Math.floor(Math.random() * jokes.length)];
-        messages[room].push({ user: "システム", text: `🤣 ジョーク: ${joke}`, room });
-        io.to(room).emit("message", { user: "システム", text: `🤣 ジョーク: ${joke}`, room });
-        return res.json({ success: true });
-
-      default:
-        const errorMsg = `❌ 未知のコマンド: ${cmd}`;
-        messages[room].push({ user: "システム", text: errorMsg, room });
-        io.to(room).emit("message", { user: "システム", text: errorMsg, room });
-        return res.json({ success: true });
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  db.get(
+    'SELECT * FROM users WHERE username = ? AND password = ?',
+    [username, password],
+    (err, row) => {
+      if (row) {
+        res.redirect(`/chat.html?username=${encodeURIComponent(username)}`);
+      } else {
+        res.send('ログイン失敗: ユーザー名またはパスワードが違います。');
+      }
     }
-  }
-
-  // 通常メッセージ
-  const msg = { user: username, text: message, room };
-  messages[room].push(msg);
-  io.to(room).emit("message", msg);
-  res.json({ success: true });
+  );
 });
 
-app.get("/messages", (req, res) => {
-  const room = req.query.room;
-  res.json(messages[room] || []);
-});
-
-io.on("connection", (socket) => {
-  socket.on("joinRoom", (room) => {
-    socket.join(room);
-    if (!usersInRooms[room]) usersInRooms[room] = [];
-
-    const username = socket.handshake.query?.username || "ゲスト";
-    if (!usersInRooms[room].includes(username)) {
-      usersInRooms[room].push(username);
+app.post('/register', (req, res) => {
+  const { username, password } = req.body;
+  db.run(
+    'INSERT INTO users (username, password) VALUES (?, ?)',
+    [username, password],
+    (err) => {
+      if (err) {
+        res.send('登録失敗: すでに存在するユーザー名です。');
+      } else {
+        res.redirect('/');
+      }
     }
+  );
+});
 
-    socket.on("disconnect", () => {
-      const index = usersInRooms[room].indexOf(username);
-      if (index !== -1) usersInRooms[room].splice(index, 1);
-    });
+// チャット管理
+let messages = [];
+const MAX_MESSAGES = 100;
+let usersInRoom = {};
+
+io.on('connection', (socket) => {
+  const username = socket.handshake.query.username || '匿名';
+
+  socket.username = username;
+  usersInRoom[socket.id] = username;
+
+  io.emit('userList', Object.values(usersInRoom));
+
+  socket.emit('chat message', 'ようこそチャットへ！');
+  socket.broadcast.emit('chat message', `${username}さんが参加しました。`);
+
+  socket.on('chat message', (msg) => {
+    if (msg.startsWith('/')) {
+      handleCommand(msg, socket);
+    } else {
+      const message = `${username}: ${msg}`;
+      messages.push(message);
+      if (messages.length > MAX_MESSAGES) messages.shift();
+      io.emit('chat message', message);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    delete usersInRoom[socket.id];
+    io.emit('userList', Object.values(usersInRoom));
+    io.emit('chat message', `${username}さんが退出しました。`);
   });
 });
 
+function handleCommand(msg, socket) {
+  const command = msg.trim().toLowerCase();
+
+  switch (command) {
+    case '/allclear':
+      messages = [];
+      io.emit('clear messages');
+      io.emit('chat message', `${socket.username}がメッセージを全削除しました。`);
+      break;
+    case '/help':
+      socket.emit(
+        'chat message',
+        '使用可能なコマンド: /allclear, /help, /date, /usercount, /roomusers, /myname, /roll, /flip, /joke'
+      );
+      break;
+    case '/date':
+      socket.emit('chat message', `現在時刻: ${new Date().toLocaleString()}`);
+      break;
+    case '/usercount':
+      socket.emit('chat message', `現在のユーザー数: ${Object.keys(usersInRoom).length}`);
+      break;
+    case '/roomusers':
+      socket.emit('chat message', `参加中ユーザー: ${Object.values(usersInRoom).join(', ')}`);
+      break;
+    case '/myname':
+      socket.emit('chat message', `あなたの名前: ${socket.username}`);
+      break;
+    case '/roll':
+      socket.emit('chat message', `${socket.username}のサイコロ: 🎲 ${Math.ceil(Math.random() * 6)}`);
+      break;
+    case '/flip':
+      const result = Math.random() < 0.5 ? '表 (Heads)' : '裏 (Tails)';
+      socket.emit('chat message', `${socket.username}のコイントス: 🪙 ${result}`);
+      break;
+    case '/joke':
+      socket.emit('chat message', 'なぜコンピューターは冷たい？ 冷却ファンがあるから！😄');
+      break;
+    default:
+      socket.emit('chat message', '不明なコマンドです。"/help"でコマンド一覧を確認できます。');
+      break;
+  }
+}
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`✅ サーバー起動 http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`サーバーがポート${PORT}で起動しました`);
+});
