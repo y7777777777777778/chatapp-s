@@ -2,294 +2,73 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>チャット</title>
-<style>
-  /* Reset & basic */
-  * {
-    box-sizing: border-box;
-  }
-  body {
-    margin: 0; padding: 0;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background: #f0f2f5;
-    height: 100vh;
-    display: flex;
-    overflow: hidden;
-  }
-
-  /* サイドバー（ユーザーリスト） */
-  #userList {
-    width: 220px;
-    background: #fff;
-    border-right: 1px solid #ddd;
-    padding: 15px;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-    overflow-y: auto;
-  }
-  #userList b {
-    display: block;
-    margin-bottom: 10px;
-    font-size: 18px;
-    color: #333;
-  }
-  #users {
-    font-size: 14px;
-    color: #555;
-    word-wrap: break-word;
-  }
-
-  /* メインチャット領域 */
-  .chat-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-  }
-
-  /* メッセージ一覧 */
-  #chat {
-    flex: 1;
-    padding: 15px;
-    overflow-y: auto;
-    background: #e5ddd5;
-  }
-
-  /* スクロールバー細くて目立ちにくく */
-  #chat::-webkit-scrollbar {
-    width: 8px;
-  }
-  #chat::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  #chat::-webkit-scrollbar-thumb {
-    background-color: rgba(0,0,0,0.1);
-    border-radius: 4px;
-  }
-
-  /* メッセージ吹き出し */
-  .message {
-    max-width: 60%;
-    margin-bottom: 12px;
-    padding: 10px 15px;
-    border-radius: 18px;
-    position: relative;
-    word-wrap: break-word;
-    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-    font-size: 15px;
-  }
-
-  /* 自分のメッセージは右寄せ、色も違う */
-  .message.self {
-    margin-left: auto;
-    background: #dcf8c6;
-    color: #222;
-  }
-
-  /* 他人のメッセージは左寄せ */
-  .message.other {
-    background: #fff;
-    color: #333;
-  }
-
-  /* システムメッセージ */
-  .message.system {
-    background: transparent;
-    color: #777;
-    font-style: italic;
-    text-align: center;
-    max-width: 100%;
-  }
-
-  /* ユーザー名 */
-  .username {
-    font-weight: bold;
-    margin-bottom: 5px;
-    display: block;
-  }
-
-  /* 画像メッセージ */
-  .message img {
-    max-width: 100%;
-    border-radius: 12px;
-    margin-top: 5px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  }
-
-  /* 入力フォーム */
-  #form {
-    display: flex;
-    padding: 12px 15px;
-    background: #fff;
-    border-top: 1px solid #ddd;
-  }
-  #input {
-    flex: 1;
-    padding: 10px 15px;
-    font-size: 16px;
-    border: 1px solid #ccc;
-    border-radius: 25px;
-    outline: none;
-    transition: border-color 0.3s;
-  }
-  #input:focus {
-    border-color: #4caf50;
-    box-shadow: 0 0 5px #4caf50;
-  }
-
-  /* ボタン */
-  #sendBtn, #imageBtn {
-    background: #4caf50;
-    border: none;
-    color: white;
-    padding: 0 20px;
-    margin-left: 10px;
-    border-radius: 25px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-  #sendBtn:hover, #imageBtn:hover {
-    background: #45a049;
-  }
-  #sendBtn:active, #imageBtn:active {
-    background: #3b8e40;
-  }
-
-  /* 画像ファイル選択は非表示 */
-  #imageInput {
-    display: none;
-  }
-
-  /* スマホ対応 */
-  @media (max-width: 600px) {
-    #userList {
-      display: none;
-    }
-    .chat-container {
-      height: 100vh;
-    }
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>チャットルーム</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+  <div class="room-selection" id="room-selection">
+    <h2>部屋を選択</h2>
+    <select id="room-select">
+      <option value="general">一般</option>
+      <option value="sports">スポーツ</option>
+      <option value="music">音楽</option>
+    </select>
+    <button id="enter-room">入室</button>
+  </div>
 
-<div id="userList">
-  <b>参加中ユーザー</b>
-  <div id="users"></div>
-</div>
+  <div id="chat-container" style="display:none;">
+    <h2 id="room-name">チャット</h2>
+    <div id="users"></div>
+    <ul id="messages"></ul>
+    <form id="form" action="">
+      <input id="input" autocomplete="off" placeholder="メッセージを入力..." /><button>送信</button>
+    </form>
+  </div>
 
-<div class="chat-container">
-  <div id="chat"></div>
-  <form id="form" autocomplete="off">
-    <input id="input" autocomplete="off" placeholder="メッセージを入力..." />
-    <button id="imageBtn" type="button" title="画像送信">📷</button>
-    <button id="sendBtn" type="submit">送信</button>
-    <input type="file" id="imageInput" accept="image/*" />
-  </form>
-</div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const username = new URLSearchParams(window.location.search).get('username') || 'ゲスト';
+    const socket = io({ query: { username } });
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  // URLからusername取得
-  const urlParams = new URLSearchParams(window.location.search);
-  const username = urlParams.get('username') || '匿名';
+    let currentRoom = '';
 
-  const socket = io({ query: { username } });
+    document.getElementById('enter-room').onclick = () => {
+      const room = document.getElementById('room-select').value;
+      currentRoom = room;
+      socket.emit('joinRoom', room);
+      document.getElementById('room-name').innerText = `現在の部屋: ${room}`;
+      document.getElementById('room-selection').style.display = 'none';
+      document.getElementById('chat-container').style.display = 'block';
+    };
 
-  const chat = document.getElementById('chat');
-  const form = document.getElementById('form');
-  const input = document.getElementById('input');
-  const userListSpan = document.getElementById('users');
-  const imageBtn = document.getElementById('imageBtn');
-  const imageInput = document.getElementById('imageInput');
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const messages = document.getElementById('messages');
 
-  function addMessage(message) {
-    const div = document.createElement('div');
-    div.classList.add('message');
-
-    // 自分のメッセージはselfクラス、他はother、システムはsystem
-    if(message.type === 'text') {
-      if(message.username === username) {
-        div.classList.add('self');
-      } else if (message.username === 'システム') {
-        div.classList.add('system');
-      } else {
-        div.classList.add('other');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (input.value) {
+        socket.emit('chat message', { room: currentRoom, msg: input.value });
+        input.value = '';
       }
-      div.innerHTML = `<span class="username">${escapeHtml(message.username)}</span>${escapeHtml(message.text)}`;
-    } else if (message.type === 'image') {
-      if(message.username === username) {
-        div.classList.add('self');
-      } else if (message.username === 'システム') {
-        div.classList.add('system');
-      } else {
-        div.classList.add('other');
-      }
-      div.innerHTML = `<span class="username">${escapeHtml(message.username)}</span><br><img src="${message.url}" alt="画像" />`;
-    }
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-  }
-
-  function escapeHtml(text) {
-    return text.replace(/[&<>"']/g, function(m) {
-      return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[m];
     });
-  }
 
-  socket.on('chat message', (msg) => {
-    addMessage(msg);
-  });
+    socket.on('chat message', function (msg) {
+      const item = document.createElement('li');
+      item.textContent = msg;
+      messages.appendChild(item);
+      window.scrollTo(0, document.body.scrollHeight);
+    });
 
-  socket.on('userList', (users) => {
-    userListSpan.textContent = users.join(', ');
-  });
+    socket.on('clear messages', () => {
+      messages.innerHTML = '';
+    });
 
-  socket.on('clear messages', () => {
-    chat.innerHTML = '';
-  });
-
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    socket.emit('chat message', text);
-    input.value = '';
-  });
-
-  imageBtn.addEventListener('click', () => {
-    imageInput.click();
-  });
-
-  imageInput.addEventListener('change', () => {
-    const file = imageInput.files[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      alert('画像ファイルを選択してください');
-      return;
-    }
-    const formData = new FormData();
-    formData.append('image', file);
-
-    fetch('/upload', {
-      method: 'POST',
-      body: formData,
-    })
-    .then((res) => res.json())
-    .then((data) => {
-      if (data.imageUrl) {
-        socket.emit('chat message', { type: 'image', url: data.imageUrl });
-      } else {
-        alert('画像アップロードに失敗しました');
-      }
-    })
-    .catch(() => alert('画像アップロードに失敗しました'));
-
-    imageInput.value = '';
-  });
-</script>
-
+    socket.on('userList', function (list) {
+      document.getElementById('users').innerText = 'ユーザー: ' + list.join(', ');
+    });
+  </script>
 </body>
 </html>
