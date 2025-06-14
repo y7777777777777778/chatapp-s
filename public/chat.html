@@ -3,71 +3,63 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>チャットルーム</title>
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="room-selection" id="room-selection">
-    <h2>部屋を選択</h2>
-    <select id="room-select">
-      <option value="general">一般</option>
-      <option value="sports">スポーツ</option>
-      <option value="music">音楽</option>
-    </select>
-    <button id="enter-room">入室</button>
-  </div>
-
-  <div id="chat-container" style="display:none;">
-    <h2 id="room-name">チャット</h2>
-    <div id="users"></div>
-    <ul id="messages"></ul>
-    <form id="form" action="">
-      <input id="input" autocomplete="off" placeholder="メッセージを入力..." /><button>送信</button>
+  <div class="chat-container">
+    <h2>チャットルーム</h2>
+    <div id="user-list"></div>
+    <div id="messages"></div>
+    <form id="form">
+      <input id="input" autocomplete="off" placeholder="メッセージまたはコマンドを入力" />
+      <input type="file" id="imageInput" accept="image/*">
+      <button>送信</button>
     </form>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const username = new URLSearchParams(window.location.search).get('username') || 'ゲスト';
-    const socket = io({ query: { username } });
-
-    let currentRoom = '';
-
-    document.getElementById('enter-room').onclick = () => {
-      const room = document.getElementById('room-select').value;
-      currentRoom = room;
-      socket.emit('joinRoom', room);
-      document.getElementById('room-name').innerText = `現在の部屋: ${room}`;
-      document.getElementById('room-selection').style.display = 'none';
-      document.getElementById('chat-container').style.display = 'block';
-    };
+    const params = new URLSearchParams(location.search);
+    const username = params.get('username') || 'ゲスト';
+    const room = params.get('room') || 'default';
+    const socket = io({ query: { username, room } });
 
     const form = document.getElementById('form');
     const input = document.getElementById('input');
     const messages = document.getElementById('messages');
+    const userList = document.getElementById('user-list');
+    const imageInput = document.getElementById('imageInput');
 
-    form.addEventListener('submit', function (e) {
+    socket.on('chat message', msg => {
+      const item = document.createElement('div');
+      item.innerHTML = msg;
+      messages.appendChild(item);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    socket.on('clear messages', () => messages.innerHTML = '');
+
+    socket.on('userList', users => {
+      userList.textContent = '参加者: ' + users.join(', ');
+    });
+
+    form.addEventListener('submit', e => {
       e.preventDefault();
       if (input.value) {
-        socket.emit('chat message', { room: currentRoom, msg: input.value });
+        socket.emit('chat message', input.value);
         input.value = '';
       }
     });
 
-    socket.on('chat message', function (msg) {
-      const item = document.createElement('li');
-      item.textContent = msg;
-      messages.appendChild(item);
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-
-    socket.on('clear messages', () => {
-      messages.innerHTML = '';
-    });
-
-    socket.on('userList', function (list) {
-      document.getElementById('users').innerText = 'ユーザー: ' + list.join(', ');
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      fetch('/upload', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => socket.emit('image', data.imageUrl));
     });
   </script>
 </body>
