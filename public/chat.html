@@ -1,158 +1,282 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>チャットルーム</title>
-  <link rel="stylesheet" href="/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>チャット</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: 'Helvetica Neue', sans-serif;
       margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       background: #f0f2f5;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    #userList {
+      width: 220px;
+      background: #fff;
+      border-right: 1px solid #ddd;
+      padding: 15px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+      overflow-y: auto;
+    }
+
+    #userList b {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 18px;
+      color: #333;
+    }
+
+    #users {
+      font-size: 14px;
+      color: #555;
+      word-wrap: break-word;
+    }
+
+    .chat-container {
+      flex: 1;
       display: flex;
       flex-direction: column;
       height: 100vh;
     }
 
-    #chat-container {
+    #chat {
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      max-width: 600px;
-      margin: auto;
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    #messages {
-      flex: 1;
+      padding: 15px;
       overflow-y: auto;
-      padding: 10px;
+      background: #e5ddd5;
     }
 
-    #messages img {
+    #chat::-webkit-scrollbar {
+      width: 8px;
+    }
+    #chat::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #chat::-webkit-scrollbar-thumb {
+      background-color: rgba(0,0,0,0.1);
+      border-radius: 4px;
+    }
+
+    .message {
+      max-width: 60%;
+      margin-bottom: 12px;
+      padding: 10px 15px;
+      border-radius: 18px;
+      position: relative;
+      word-wrap: break-word;
+      box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+      font-size: 15px;
+    }
+
+    .message.self {
+      margin-left: auto;
+      background: #dcf8c6;
+      color: #222;
+    }
+
+    .message.other {
+      background: #fff;
+      color: #333;
+    }
+
+    .message.system {
+      background: transparent;
+      color: #777;
+      font-style: italic;
+      text-align: center;
       max-width: 100%;
-      height: auto;
+    }
+
+    .username {
+      font-weight: bold;
+      margin-bottom: 5px;
+      display: block;
+    }
+
+    .message img {
+      max-width: 100%;
+      border-radius: 12px;
       margin-top: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
     #form {
       display: flex;
-      padding: 10px;
-      border-top: 1px solid #ccc;
-      gap: 8px;
-      background: #fafafa;
+      padding: 12px 15px;
+      background: #fff;
+      border-top: 1px solid #ddd;
     }
 
     #input {
       flex: 1;
-      padding: 8px;
+      padding: 10px 15px;
+      font-size: 16px;
       border: 1px solid #ccc;
-      border-radius: 4px;
+      border-radius: 25px;
+      outline: none;
+      transition: border-color 0.3s;
     }
 
-    #file {
+    #input:focus {
+      border-color: #4caf50;
+      box-shadow: 0 0 5px #4caf50;
+    }
+
+    #sendBtn, #imageBtn {
+      background: #4caf50;
       border: none;
-    }
-
-    #room-select {
-      margin: 10px auto;
-      width: 100%;
-      padding: 8px;
-    }
-
-    button {
-      background-color: #3897f0;
       color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
+      padding: 0 20px;
+      margin-left: 10px;
+      border-radius: 25px;
+      font-weight: bold;
       cursor: pointer;
+      transition: background-color 0.3s ease;
     }
 
-    button:hover {
-      background-color: #357ae8;
+    #sendBtn:hover, #imageBtn:hover {
+      background: #45a049;
+    }
+
+    #sendBtn:active, #imageBtn:active {
+      background: #3b8e40;
+    }
+
+    #imageInput {
+      display: none;
+    }
+
+    @media (max-width: 600px) {
+      #userList {
+        display: none;
+      }
+      .chat-container {
+        height: 100vh;
+      }
     }
   </style>
 </head>
 <body>
-  <select id="room-select">
-    <option value="general"># General</option>
-    <option value="random"># Random</option>
-    <option value="tech"># Tech</option>
-  </select>
 
-  <div id="chat-container">
-    <ul id="messages"></ul>
-    <form id="form" enctype="multipart/form-data">
-      <input id="input" autocomplete="off" placeholder="メッセージを入力..." />
-      <input type="file" id="file" accept="image/*" />
-      <button>送信</button>
-    </form>
-  </div>
+<div id="userList">
+  <b>参加中ユーザー</b>
+  <div id="users"></div>
+</div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const username = new URLSearchParams(location.search).get('username') || 'ゲスト';
-    let room = document.getElementById('room-select').value;
+<div class="chat-container">
+  <div id="chat"></div>
+  <form id="form" autocomplete="off">
+    <input id="input" autocomplete="off" placeholder="メッセージを入力..." />
+    <button id="imageBtn" type="button" title="画像送信">📷</button>
+    <button id="sendBtn" type="submit">送信</button>
+    <input type="file" id="imageInput" accept="image/*" />
+  </form>
+</div>
 
-    const socket = io({
-      query: { username, room }
-    });
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const urlParams = new URLSearchParams(window.location.search);
+  const username = urlParams.get('username') || 'ゲスト';
+  const room = urlParams.get('room') || 'default';
+  const socket = io({ query: { username, room } });
 
-    const form = document.getElementById('form');
-    const input = document.getElementById('input');
-    const messages = document.getElementById('messages');
-    const fileInput = document.getElementById('file');
+  const chat = document.getElementById('chat');
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const userListSpan = document.getElementById('users');
+  const imageBtn = document.getElementById('imageBtn');
+  const imageInput = document.getElementById('imageInput');
 
-    function addMessage(content) {
-      const li = document.createElement('li');
-      if (typeof content === 'string') {
-        li.textContent = content;
+  function addMessage(message) {
+    const div = document.createElement('div');
+    div.classList.add('message');
+
+    if (message.username === 'システム') {
+      div.classList.add('system');
+      div.textContent = message.text;
+    } else {
+      if (message.username === username) {
+        div.classList.add('self');
       } else {
-        li.innerHTML = content;
+        div.classList.add('other');
       }
-      messages.appendChild(li);
-      messages.scrollTop = messages.scrollHeight;
+
+      if (message.type === 'image') {
+        div.innerHTML = `<span class="username">${escapeHtml(message.username)}</span><br><img src="${message.url}" alt="画像" />`;
+      } else {
+        div.innerHTML = `<span class="username">${escapeHtml(message.username)}</span>${escapeHtml(message.text)}`;
+      }
     }
 
-    socket.on('chat message', (msg) => {
-      addMessage(msg);
-    });
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
 
-    socket.on('image message', (html) => {
-      addMessage(html);
-    });
+  function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, (m) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[m]);
+  }
 
-    socket.on('clear messages', () => {
-      messages.innerHTML = '';
-    });
+  socket.on('chat message', (msg) => {
+    addMessage(msg);
+  });
 
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const text = input.value;
-      const file = fileInput.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          socket.emit('image', { buffer: reader.result, name: file.name });
-        };
-        reader.readAsDataURL(file);
-        fileInput.value = '';
-      }
-      if (text) {
-        socket.emit('chat message', text);
-        input.value = '';
-      }
-    });
+  socket.on('chat history', (history) => {
+    history.forEach(addMessage);
+  });
 
-    document.getElementById('room-select').addEventListener('change', (e) => {
-      room = e.target.value;
-      location.href = `/chat.html?username=${encodeURIComponent(username)}&room=${room}`;
-    });
-  </script>
+  socket.on('userList', (users) => {
+    userListSpan.textContent = users.join(', ');
+  });
+
+  socket.on('clear messages', () => {
+    chat.innerHTML = '';
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    socket.emit('chat message', text);
+    input.value = '';
+  });
+
+  imageBtn.addEventListener('click', () => {
+    imageInput.click();
+  });
+
+  imageInput.addEventListener('change', () => {
+    const file = imageInput.files[0];
+    if (!file || !file.type.startsWith('image/')) {
+      alert('画像ファイルを選択してください');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('image', file);
+
+    fetch('/upload', {
+      method: 'POST',
+      body: formData,
+    }).then(res => res.json())
+      .then(data => {
+        if (data.imageUrl) {
+          socket.emit('chat message', { type: 'image', url: data.imageUrl });
+        } else {
+          alert('画像アップロードに失敗しました');
+        }
+      }).catch(() => alert('画像アップロードに失敗しました'));
+
+    imageInput.value = '';
+  });
+</script>
 </body>
 </html>
