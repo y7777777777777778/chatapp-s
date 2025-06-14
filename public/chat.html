@@ -2,64 +2,156 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>チャットルーム</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body {
+      font-family: 'Helvetica Neue', sans-serif;
+      margin: 0;
+      background: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    #messages img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 5px;
+    }
+
+    #form {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+      gap: 8px;
+      background: #fafafa;
+    }
+
+    #input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    #file {
+      border: none;
+    }
+
+    #room-select {
+      margin: 10px auto;
+      width: 100%;
+      padding: 8px;
+    }
+
+    button {
+      background-color: #3897f0;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #357ae8;
+    }
+  </style>
 </head>
 <body>
-  <div class="chat-container">
-    <h2>チャットルーム</h2>
-    <div id="user-list"></div>
-    <div id="messages"></div>
-    <form id="form">
-      <input id="input" autocomplete="off" placeholder="メッセージまたはコマンドを入力" />
-      <input type="file" id="imageInput" accept="image/*">
+  <select id="room-select">
+    <option value="general"># General</option>
+    <option value="random"># Random</option>
+    <option value="tech"># Tech</option>
+  </select>
+
+  <div id="chat-container">
+    <ul id="messages"></ul>
+    <form id="form" enctype="multipart/form-data">
+      <input id="input" autocomplete="off" placeholder="メッセージを入力..." />
+      <input type="file" id="file" accept="image/*" />
       <button>送信</button>
     </form>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const params = new URLSearchParams(location.search);
-    const username = params.get('username') || 'ゲスト';
-    const room = params.get('room') || 'default';
-    const socket = io({ query: { username, room } });
+    const username = new URLSearchParams(location.search).get('username') || 'ゲスト';
+    let room = document.getElementById('room-select').value;
+
+    const socket = io({
+      query: { username, room }
+    });
 
     const form = document.getElementById('form');
     const input = document.getElementById('input');
     const messages = document.getElementById('messages');
-    const userList = document.getElementById('user-list');
-    const imageInput = document.getElementById('imageInput');
+    const fileInput = document.getElementById('file');
 
-    socket.on('chat message', msg => {
-      const item = document.createElement('div');
-      item.innerHTML = msg;
-      messages.appendChild(item);
+    function addMessage(content) {
+      const li = document.createElement('li');
+      if (typeof content === 'string') {
+        li.textContent = content;
+      } else {
+        li.innerHTML = content;
+      }
+      messages.appendChild(li);
       messages.scrollTop = messages.scrollHeight;
+    }
+
+    socket.on('chat message', (msg) => {
+      addMessage(msg);
     });
 
-    socket.on('clear messages', () => messages.innerHTML = '');
-
-    socket.on('userList', users => {
-      userList.textContent = '参加者: ' + users.join(', ');
+    socket.on('image message', (html) => {
+      addMessage(html);
     });
 
-    form.addEventListener('submit', e => {
+    socket.on('clear messages', () => {
+      messages.innerHTML = '';
+    });
+
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (input.value) {
-        socket.emit('chat message', input.value);
+      const text = input.value;
+      const file = fileInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          socket.emit('image', { buffer: reader.result, name: file.name });
+        };
+        reader.readAsDataURL(file);
+        fileInput.value = '';
+      }
+      if (text) {
+        socket.emit('chat message', text);
         input.value = '';
       }
     });
 
-    imageInput.addEventListener('change', () => {
-      const file = imageInput.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append('image', file);
-      fetch('/upload', { method: 'POST', body: formData })
-        .then(res => res.json())
-        .then(data => socket.emit('image', data.imageUrl));
+    document.getElementById('room-select').addEventListener('change', (e) => {
+      room = e.target.value;
+      location.href = `/chat.html?username=${encodeURIComponent(username)}&room=${room}`;
     });
   </script>
 </body>
